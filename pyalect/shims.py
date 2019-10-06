@@ -5,14 +5,14 @@ from . import dialect
 
 
 try:
-    from IPython.core.interactiveshell import InteractiveShell, ExecutionResult
+    from IPython.core.interactiveshell import InteractiveShell
     from IPython.core.magic import magics_class, Magics, cell_magic
 except ImportError:
     pass
 else:
 
     class DialectNodeTransformer(ast.NodeTransformer):
-        def visit(self, node: ast.AST):
+        def visit(self, node: ast.AST) -> ast.AST:
             first_node = next(ast.iter_child_nodes(node))
             if (
                 isinstance(first_node, ast.Assign)
@@ -28,15 +28,15 @@ else:
         shell_inst: InteractiveShell = shell or InteractiveShell.instance()
 
         @magics_class
-        class DialectMagics(Magics):
-            def __init__(self, shell: InteractiveShell, **kwargs):
+        class DialectMagics(Magics):  # type: ignore
+            def __init__(self, shell: InteractiveShell, **kwargs: Any) -> None:
                 super().__init__(shell, **kwargs)
                 shell.ast_transformers.insert(0, DialectNodeTransformer())
 
-            @cell_magic
-            def dialect(self, cell_dialect, raw_cell):
+            @cell_magic  # type: ignore
+            def dialect(self, cell_dialect: str, raw_cell: str) -> None:
                 transpiler = dialect.transpiler(cell_dialect)
-                exec_result: ExecutionResult = shell.run_cell(
+                self.shell.run_cell(
                     # We need to prepend this ince we can't look for
                     # the dialect comment when transforming the AST.
                     f"_DIALECT_ = {cell_dialect!r}\n"

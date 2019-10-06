@@ -1,6 +1,13 @@
 # Pyalect
 
-Dynamically transpiling Python for Good
+Dynamically transpiling Python for good.
+
+
+# Installation
+
+```bash
+pip install pyalect
+```
 
 
 # Console Usage
@@ -12,7 +19,74 @@ pyalect deregister (<dialect> | <transpiler> [as <dialect])
 pyalect config (show | path)
 ```
 
-Examples:
+
+<table>
+    <tr>
+        <td>
+            <code>pyalect activate</code>
+        </td>
+        <td>
+            The current Python interpreter will now automatically apply registered
+            transpilers to imported module with a <code># dialect=...</code> comment header.
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <code>pyalect deactivate</code>
+        </td>
+        <td>
+            The current Python interpreter will no longer apply registered transpilers
+            to import modules.
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <code>pyalect register &ltranspiler&gt as &ltdialect&gt [--force]</code>
+        </td>
+        <td>
+            Save a transpiler to be applied to modules with the given
+            <code>&ltdialect&gt</code> header. The <code>%lttranspiler&gt</code> should
+            follow one of the following forms:
+            <ul>
+                <li><code>package.module.submodule</code></li>
+                <li><code>package.module.submodule:attribute</code></li>
+            </ul>
+            If the <code>--force</code> option is provide then it will overwrite
+            an existing transpiler (if any).
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <code>pyalect deregister (&ltdialect&gt | &lttranspiler&gt as &ltdialect&gt)</code>
+        </td>
+        <td>
+            Remove a transpiler from the dialect registery. Providing just the
+            <code>&ltdialect&gt</code> will remove any transpiler that's registered to
+            it. Providing a <code>&lttranspiler&gt</code> will remove is from the given
+            <code>&ltdialect&gt</code>, however if <code>&ltdialect&gt</code> is
+            <code>*</code> it will be deregistered from dialects.
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <code>pyalect config show</code>
+        </td>
+        <td>
+            Prints the current configuration to the console
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <code>pyalect config path</code>
+        </td>
+        <td>
+            Prints the configuration files's path to the console
+        </td>
+    </tr>
+</table>
+
+
+## Console Examples:
 
 ```bash
 pyalect register my_module:MyTranspiler as my_dialect
@@ -48,6 +122,16 @@ pyalect.register("my_dialect", MyTranspiler)
 # dialect=my_dialect
 ...
 ```
+
+
+# How it Works
+
+Pyalect hooks into Python's import system to register transpilers that are activated
+when they find `# dialect=...` comments at the top of files. Registering transpilers
+is done:
+
+1. Via the CLI - configures the interpreter where Pyalect is installed.
+2. Programatically - applies to modules imported in the current session.
 
 
 # IPython and Jupyter Support
