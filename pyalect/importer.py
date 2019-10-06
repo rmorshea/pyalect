@@ -9,18 +9,12 @@ from importlib.machinery import ModuleSpec
 from typing import Union, Optional, Any, Sequence, List
 import types
 
-from . import dialect, config
-
-
-def activate() -> None:
-    config.write({"active": True})
-
-
-def deactivate() -> None:
-    config.write({"active": False})
+from . import dialect
 
 
 class PyalectLoader(FileLoader):
+    """Import loader for Pyalect."""
+
     def get_byte_source(self, fullname: str) -> bytes:
         with open(self.get_filename(fullname), "rb") as f:
             return f.read()
@@ -35,7 +29,7 @@ class PyalectLoader(FileLoader):
 
     def get_dialect(self, fullname: str) -> Optional[str]:
         """Find dialect comment before the first non-continuation newline."""
-        return dialect.find(self.get_byte_source(fullname))
+        return dialect.find_dialect(self.get_byte_source(fullname))
 
     def get_code(self, fullname: str) -> Any:
         source = self.get_source(fullname)
@@ -52,6 +46,11 @@ class PyalectLoader(FileLoader):
 
 
 class PyalectFinder(MetaPathFinder):
+    """Determine whether to load modules with a :class:`PyalectLoader`.
+
+    This class is registered to :data:`sys.meta_path`.
+    """
+
     def find_spec(
         self,
         fullname: str,
