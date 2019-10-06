@@ -1,0 +1,4 @@
+jupyter
+pre-commit
+notebook
+twine

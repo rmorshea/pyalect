@@ -1,0 +1,28 @@
+# --- Jupyter ---
+*.ipynb_checkpoints
+
+# --- Jupyter Repo 2 Docker ---
+.local
+.ipython
+.cache
+.bash_history
+.python_history
+.jupyter
+
+# --- Python ---
+MANIFEST
+build
+dist
+*.egg-info
+__pycache__/
+*.py[cod]
+
+# -- Python Tests ---
+*.coverage
+*.pytest_cache
+*.mypy_cache
+
+# --- IDE ---
+.idea
+.vscode
+*.code-workspace

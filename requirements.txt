@@ -1,0 +1,4 @@
+-r dependencies/prod.txt
+-r dependencies/test.txt
+-r dependencies/docs.txt
+-r dependencies/dev.txt
