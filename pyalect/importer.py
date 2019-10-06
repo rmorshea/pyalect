@@ -1,27 +1,22 @@
 import ast
 import io
 import os
-import re
-import imp
 import sys
-import marshal
-import inspect
 import tokenize
-from uuid import uuid1
-from importlib import import_module
 from importlib.abc import MetaPathFinder, FileLoader
 from importlib.util import spec_from_file_location
-from typing import Union, Optional
-from types import CodeType
+from importlib.machinery import ModuleSpec
+from typing import Union, Optional, Any, Sequence, List
+import types
 
 from . import dialect, config
 
 
-def activate():
+def activate() -> None:
     config.write({"active": True})
 
 
-def deactivate():
+def deactivate() -> None:
     config.write({"active": False})
 
 
@@ -30,17 +25,19 @@ class PyalectLoader(FileLoader):
         with open(self.get_filename(fullname), "rb") as f:
             return f.read()
 
-    def get_source(self, fullname: str) -> bytes:
+    def get_source(self, fullname: str) -> str:
         byte_source = self.get_byte_source(fullname)
         encoding, _ = tokenize.detect_encoding(io.BytesIO(byte_source).readline)
-        newline_decoder = io.IncrementalNewlineDecoder(None, True)
-        return newline_decoder.decode(byte_source.decode(encoding))
+        # see: https://github.com/python/typeshed/pull/3311
+        newline_decoder = io.IncrementalNewlineDecoder(None, True)  # type: ignore
+        # see: https://github.com/python/typeshed/pull/3312
+        return newline_decoder.decode(byte_source.decode(encoding))  # type: ignore
 
     def get_dialect(self, fullname: str) -> Optional[str]:
         """Find dialect comment before the first non-continuation newline."""
         return dialect.find(self.get_byte_source(fullname))
 
-    def get_code(self, fullname: str) -> CodeType:
+    def get_code(self, fullname: str) -> Any:
         source = self.get_source(fullname)
         filename = self.get_filename(fullname)
         dialect_name = self.get_dialect(fullname)
@@ -55,15 +52,23 @@ class PyalectLoader(FileLoader):
 
 
 class PyalectFinder(MetaPathFinder):
-    def find_spec(self, fullname, path, target=None):
-        if path in (None, ""):
-            path = [os.getcwd()]  # top level import
+    def find_spec(
+        self,
+        fullname: str,
+        path: Optional[Sequence[Union[bytes, str]]],
+        target: Optional[types.ModuleType] = None,
+    ) -> Optional[ModuleSpec]:
+        if path is None:
+            known_path = [os.getcwd()]  # top level import
+        else:
+            known_path = [p if isinstance(p, str) else p.decode() for p in path]
         if "." in fullname:
             parents, name = fullname.rsplit(".", 1)
         else:
             name = fullname
 
-        for entry in path:
+        for entry in known_path:
+            submodule_locations: Optional[List[str]]
             if os.path.isdir(os.path.join(entry, name)):
                 # this module has child modules
                 filename = os.path.join(entry, name, "__init__.py")

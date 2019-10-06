@@ -11,7 +11,7 @@ import pyalect
 _CONFIG: Optional[Dict[str, Any]] = None
 
 
-def path():
+def path() -> Path:
     return Path(get_python_lib()) / "pyalect.pth"
 
 
@@ -19,7 +19,8 @@ def read() -> Dict[str, Any]:
     global _CONFIG
     if _CONFIG is None:
         _CONFIG = _read_file()
-    return deepcopy(_CONFIG)
+    new: Dict[str, Any] = deepcopy(_CONFIG)
+    return new
 
 
 def write(new: Dict[str, Any], old: Optional[Dict[str, Any]] = None) -> None:
@@ -32,20 +33,21 @@ def write(new: Dict[str, Any], old: Optional[Dict[str, Any]] = None) -> None:
 
 def delete() -> bool:
     if path().exists():
-        os.path.remove(path())
+        os.remove(path())
         return True
     else:
         return False
 
 
-def _read_file():
+def _read_file() -> Dict[str, Any]:
     if not path().exists():
         return {"version": pyalect.__version__, "dialects": {}, "active": False}
     else:
         with open(path()) as pth:
             for line in pth:
                 if line.startswith("#"):
-                    return json.loads(line[1:])
+                    cfg: Dict[str, Any] = json.loads(line[1:])
+                    return cfg
         return {}
 
 
@@ -68,7 +70,7 @@ def _merge(target: Dict[str, Any], source: Dict[str, Any]) -> Dict[str, Any]:
             continue
         v_tgt = target[key]
         if isinstance(v_tgt, dict) and isinstance(v_src, dict):
-            merge(v_tgt, v_src)
+            _merge(v_tgt, v_src)
         else:
             target[key] = v_src
     return target

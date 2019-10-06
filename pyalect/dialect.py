@@ -1,11 +1,10 @@
 import io
-import abc
 import ast
 import re
 import inspect
 import tokenize
 from importlib import import_module
-from typing import Callable, Any, Iterable, Optional, Union
+from typing import Any, Optional, Union
 from typing_extensions import Protocol, runtime_checkable
 
 from . import config
@@ -19,7 +18,7 @@ DIALECT_COMMENT = re.compile(r"^# ?dialect ?= ?(.+)\n?$")
 TRANSPILER_NAME = re.compile(r"^[\w\.]+(\:[\w\.]+)?$")
 
 
-def find(source: Union[bytes, str]):
+def find(source: Union[bytes, str]) -> Optional[str]:
     """Find dialect comment before the first non-continuation newline."""
     if isinstance(source, str):
         buffer = io.BytesIO(source.encode())
@@ -63,9 +62,12 @@ def import_transpiler(name: str) -> Transpiler:
             raise ImportError(f"Cannot import {from_name!r} from {module_name!r}")
     else:
         transpiler = module
-    if is_transpiler(transpiler):
+    if isinstance(transpiler, Transpiler):
+        return transpiler
+    elif inspect.isclass(transpiler) and issubclass(transpiler, Transpiler):
+        return transpiler()  # type: ignore
+    else:
         raise ImportError(f"{transpiler!r} is not a valid transpiler")
-    return transpiler
 
 
 def transpiler(dialect: str) -> Transpiler:
@@ -74,11 +76,7 @@ def transpiler(dialect: str) -> Transpiler:
         raise ImportError(f"Unknown dialect {dialect!r}")
     else:
         transpiler_name = cfg_dialects[dialect]
-        transpiler = import_transpiler(transpiler_name)
-        if inspect.isclass(transpiler):
-            return transpiler()
-        else:
-            return transpiler
+        return import_transpiler(transpiler_name)
 
 
 def register(dialect: str, transpiler: Union[Transpiler, str], force: bool) -> None:
@@ -104,27 +102,24 @@ def register(dialect: str, transpiler: Union[Transpiler, str], force: bool) -> N
         raise TypeError(f"Invalid transpiler {transpiler!r} for dialect {dialect!r}")
 
 
-def deregister(dialect: Optional[str], transpiler: Union[Transpiler, str, None]) -> None:
+def deregister(
+    dialect: Optional[str], transpiler: Union[Transpiler, str, None]
+) -> None:
     if dialect is not None and not DIALECT_NAME.match(dialect):
         raise UsageError(f"invalid dialect name {dialect!r}")
 
     if is_transpiler(transpiler):
-        _deregister_temp(dialect, transpiler)
+        _deregister_temp(dialect, transpiler)  # type: ignore
         return None
 
-    if transpiler is not None and not TRANSPILER_NAME.match(transpiler):
+    if transpiler is not None and not TRANSPILER_NAME.match(transpiler):  # type: ignore
         raise UsageError(f"invalid transpiler name {transpiler!r}")
     if not (transpiler or dialect):
         raise UsageError("No transpiler or dialect to deregister")
+
     cfg = config.read()
     cfg_dialects = cfg["dialects"]
-    if dialect is not None:
-        cfg_dialects.pop(dialect, None)
-    elif transpiler is not None:
-        for d, t in list(cfg_dialects.items()):
-            if t == transpiler:
-                del cfg_dialects[dialect]
-    else:
+    if dialect is not None and transpiler != "*":
         if dialect not in cfg_dialects:
             raise UsageError(f"No dialect {dialect!r} to deregister")
         elif transpiler != cfg_dialects[dialect]:
@@ -132,10 +127,17 @@ def deregister(dialect: Optional[str], transpiler: Union[Transpiler, str, None])
             raise UsageError(msg)
         else:
             del cfg_dialects[dialect]
+    elif dialect is not None:
+        cfg_dialects.pop(dialect, None)
+    else:
+        for d, t in list(cfg_dialects.items()):
+            if t == transpiler:
+                del cfg_dialects[dialect]
+
     config.write(cfg)
 
 
-def _deregister_temp(dialect: str, transpiler: Transpiler):
+def _deregister_temp(dialect: str, transpiler: Transpiler) -> None:
     if dialect is None:
         for d, t in _TEMP_DIALECTS.items():
             if t == transpiler:
