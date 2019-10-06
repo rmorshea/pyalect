@@ -12,6 +12,8 @@ except ImportError:
 else:
 
     class DialectNodeTransformer(ast.NodeTransformer):
+        """Node transformer defined to hook into IPython."""
+
         def visit(self, node: ast.AST) -> ast.AST:
             first_node = next(ast.iter_child_nodes(node))
             if (
@@ -25,6 +27,7 @@ else:
             return node
 
     def register_to_ipython_shell(shell: Optional[InteractiveShell] = None) -> None:
+        """Register transpiler hooks to IPython shell."""
         shell_inst: InteractiveShell = shell or InteractiveShell.instance()
 
         @magics_class

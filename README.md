@@ -1,6 +1,6 @@
 # Pyalect
 
-Dynamically transpiling Python for good.
+Dynamically transpiling Python dialect for good.
 
 
 # Installation
@@ -16,9 +16,8 @@ pip install pyalect
 pyalect (activate | deactivate)
 pyalect register <transpiler> as <dialect> [--force]
 pyalect deregister (<dialect> | <transpiler> [as <dialect])
-pyalect config (show | path)
+pyalect show config
 ```
-
 
 <table>
     <tr>
@@ -27,7 +26,8 @@ pyalect config (show | path)
         </td>
         <td>
             The current Python interpreter will now automatically apply registered
-            transpilers to imported module with a <code># dialect=...</code> comment header.
+            transpilers to imported module with a <code># dialect=...</code> comment
+            header.
         </td>
     </tr>
     <tr>
@@ -36,28 +36,24 @@ pyalect config (show | path)
         </td>
         <td>
             The current Python interpreter will no longer apply registered transpilers
-            to import modules.
+            to imported modules.
         </td>
     </tr>
     <tr>
         <td>
-            <code>pyalect register &ltranspiler&gt as &ltdialect&gt [--force]</code>
+            <code>pyalect register</code>
         </td>
         <td>
-            Save a transpiler to be applied to modules with the given
-            <code>&ltdialect&gt</code> header. The <code>%lttranspiler&gt</code> should
-            follow one of the following forms:
-            <ul>
-                <li><code>package.module.submodule</code></li>
-                <li><code>package.module.submodule:attribute</code></li>
-            </ul>
-            If the <code>--force</code> option is provide then it will overwrite
-            an existing transpiler (if any).
+            Save a transpiler that will be applied to modules with the given
+            <code>&ltdialect&gt</code> header. The <code>&lttranspiler&gt</code> must
+            be of the form <code>dotten.path.to:TranspilerClass</code>. If the
+            <code>--force</code> option is provided then it will overwrite an existing
+            transpiler (if any).
         </td>
     </tr>
     <tr>
         <td>
-            <code>pyalect deregister (&ltdialect&gt | &lttranspiler&gt as &ltdialect&gt)</code>
+            <code>pyalect deregister</code>
         </td>
         <td>
             Remove a transpiler from the dialect registery. Providing just the
@@ -69,24 +65,24 @@ pyalect config (show | path)
     </tr>
     <tr>
         <td>
-            <code>pyalect config show</code>
+            <code>pyalect show config</code>
         </td>
         <td>
-            Prints the current configuration to the console
+            Prints the configuration file path and current state.
         </td>
     </tr>
     <tr>
         <td>
-            <code>pyalect config path</code>
+            <code>pyalect delete config</code>
         </td>
         <td>
-            Prints the configuration files's path to the console
+            Deletes the config file. This should be done prior to uninstalling Pyalect.
         </td>
     </tr>
 </table>
 
 
-## Console Examples:
+## Console Examples
 
 ```bash
 pyalect register my_module:MyTranspiler as my_dialect
@@ -96,6 +92,9 @@ pyalect config show
 
 
 # Programatic Usage
+
+Programatic usage of pyalect only applies within the current Python session and must be
+done before importing.
 
 ```python
 import ast
@@ -111,27 +110,20 @@ class MyTranspiler:
         # modify AST ...
         return node
 
-# this will only be applied within the current interpreter
 pyalect.register("my_dialect", MyTranspiler)
 ```
 
 
 # Indicating Dialects
 
+If Pyalect has been activated via the console, or has already been imported, then
+Pyalect will hook into Python's import system to register transpilers that will be
+applied to files with their respecitve dialect comment in the file's header:
+
 ```python
 # dialect=my_dialect
 ...
 ```
-
-
-# How it Works
-
-Pyalect hooks into Python's import system to register transpilers that are activated
-when they find `# dialect=...` comments at the top of files. Registering transpilers
-is done:
-
-1. Via the CLI - configures the interpreter where Pyalect is installed.
-2. Programatically - applies to modules imported in the current session.
 
 
 # IPython and Jupyter Support

@@ -11,11 +11,25 @@ import pyalect
 _CONFIG: Optional[Dict[str, Any]] = None
 
 
+def activate() -> None:
+    write({"active": True})
+
+
+def deactivate() -> None:
+    write({"active": False})
+
+
 def path() -> Path:
+    """Path to ``.pth`` file.
+
+    Depending on platform the path will be located in one
+    of several directories. See :mod:`site` for more info.
+    """
     return Path(get_python_lib()) / "pyalect.pth"
 
 
 def read() -> Dict[str, Any]:
+    """Read config file from :func:`path`."""
     global _CONFIG
     if _CONFIG is None:
         _CONFIG = _read_file()
@@ -24,6 +38,7 @@ def read() -> Dict[str, Any]:
 
 
 def write(new: Dict[str, Any], old: Optional[Dict[str, Any]] = None) -> None:
+    """Write config file to :func:`path`"""
     global _CONFIG
     if old is None:
         old = read()
@@ -32,6 +47,7 @@ def write(new: Dict[str, Any], old: Optional[Dict[str, Any]] = None) -> None:
 
 
 def delete() -> bool:
+    """Delete config file from :func:`path`."""
     if path().exists():
         os.remove(path())
         return True
