@@ -1,4 +1,4 @@
--r dependencies/prod.txt
--r dependencies/test.txt
--r dependencies/docs.txt
--r dependencies/dev.txt
+-r requirements/prod.txt
+-r requirements/test.txt
+-r requirements/docs.txt
+-r requirements/dev.txt
