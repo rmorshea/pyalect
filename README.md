@@ -1,6 +1,6 @@
 # Pyalect
 
-Dynamically transpiling Python dialect for good.
+A dynamic dialect transpiler for Python.
 
 
 # Installation
@@ -8,6 +8,7 @@ Dynamically transpiling Python dialect for good.
 ```bash
 pip install pyalect
 ```
+
 
 # Read The Docs
 

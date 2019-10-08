@@ -7,6 +7,7 @@ from typing import Any, Dict, Optional
 
 import pyalect
 
+_HERE = Path(__file__).parent
 _CONFIG: Optional[Dict[str, Any]] = None
 
 
@@ -70,7 +71,8 @@ def _write_file(config: Dict[str, Any]) -> None:
     lines = []
     if config["active"]:
         # only import pyalect if active
-        lines.append("import pyalect")
+        with open(_HERE / "pth.embed") as pth_src:
+            lines.append("import os; exec(%r)" % pth_src.read())
     serialized = json.dumps(config)
     lines.append(f"# {serialized}")
     with open(path(), "w+") as pth:
