@@ -12,8 +12,9 @@ A dynamic dialect transpiler for Python.
 Early Days
 ----------
 
-IDOM is still young. If you have ideas or find a bug, be sure to post an
-`issue`_ or create a `pull request`_. Thanks in advance!
+Pyalect is still young! If you have ideas, now is the time to contribute a `pull request`_.
+Of course if you find a bug, and aren't sure how to fix it post an `issue`_ and it'll get
+taken care of.
 
 
 Installation
