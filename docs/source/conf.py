@@ -11,6 +11,8 @@
 import os
 import sys
 
+import pyalect  # noqa
+
 here = os.path.dirname(__file__)
 project = here.rsplit(os.path.sep, 2)[0]
 init_file = os.path.join(project, "pyalect", "__init__.py")
@@ -22,7 +24,6 @@ project = "Pyalect"
 copyright = "2019, Ryan Morshead"
 author = "Ryan Morshead"
 
-import pyalect  # noqa
 
 release = pyalect.__version__
 version = release.rsplit(".", 1)[0]

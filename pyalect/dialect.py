@@ -1,14 +1,14 @@
-import io
 import ast
+import io
 import re
 import tokenize
 from importlib import import_module
-from typing import Optional, Union, Type, Dict
+from typing import Dict, Optional, Type, Union
+
 from typing_extensions import Protocol, runtime_checkable
 
 from . import config
 from .errors import UsageError
-
 
 _TEMP_DIALECTS: Dict[str, Type["Transpiler"]] = {}
 

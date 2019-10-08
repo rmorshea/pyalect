@@ -1,9 +1,7 @@
 __version__ = "0.1.0.dev0"
-from .dialect import Transpiler, register, deregister
-from .config import path, activate, deactivate
-from . import importer
-from . import shims
-
+from . import importer, shims
+from .config import activate, deactivate, path
+from .dialect import Transpiler, deregister, register
 
 __all__ = [
     "activate",

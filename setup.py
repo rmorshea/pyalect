@@ -1,8 +1,9 @@
 from __future__ import print_function
 
-from setuptools import setup, find_packages
 import os
 import sys
+
+from setuptools import find_packages, setup
 
 # the name of the project
 name = "pyalect"

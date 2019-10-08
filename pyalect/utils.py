@@ -2,9 +2,8 @@ import textwrap
 from functools import wraps
 from typing import Any, Callable, Dict, Optional
 
-from typing_extensions import Protocol
-
 from docopt import docopt
+from typing_extensions import Protocol
 
 _ConsoleFunction = Callable[[Dict[str, Any]], None]
 

@@ -3,11 +3,11 @@ import io
 import os
 import sys
 import tokenize
-from importlib.abc import MetaPathFinder, FileLoader
-from importlib.util import spec_from_file_location
-from importlib.machinery import ModuleSpec
-from typing import Union, Optional, Any, Sequence, List
 import types
+from importlib.abc import FileLoader, MetaPathFinder
+from importlib.machinery import ModuleSpec
+from importlib.util import spec_from_file_location
+from typing import Any, List, Optional, Sequence, Union
 
 from . import dialect
 
