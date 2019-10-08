@@ -15,3 +15,16 @@ repos:
     - id: mypy
       args: ["--config-file", "mypy.ini", "--strict"]
       exclude: tests/*|setup.py
+-   repo: https://github.com/asottile/seed-isort-config
+    rev: v1.9.3
+    hooks:
+    -   id: seed-isort-config
+-   repo: https://github.com/timothycrosley/isort
+    rev: 4.3.21
+    hooks:
+    - id: isort
+      language_version: python3.6
+      args:
+      - --wrap-length=88
+      - --trailing-comma
+      - --multi-line=3

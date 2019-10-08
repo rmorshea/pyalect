@@ -1,12 +1,11 @@
-import os
 import json
-from pathlib import Path
+import os
 from copy import deepcopy
 from distutils.sysconfig import get_python_lib
-from typing import Dict, Optional, Any
+from pathlib import Path
+from typing import Any, Dict, Optional
 
 import pyalect
-
 
 _CONFIG: Optional[Dict[str, Any]] = None
 

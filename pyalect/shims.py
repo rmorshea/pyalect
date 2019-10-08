@@ -1,8 +1,7 @@
 import ast
-from typing import Optional, Type, Any
+from typing import Any, Optional, Type
 
 from . import dialect
-
 
 try:
     from IPython.core.interactiveshell import InteractiveShell
