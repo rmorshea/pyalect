@@ -1,7 +1,7 @@
 Pyalect |release|
 =================
 
-Dynamically transpiling Python dialect for good.
+A dynamic dialect transpiler for Python.
 
 .. toctree::
     :maxdepth: 1
@@ -60,7 +60,7 @@ Console Usage
     * - ``pyalect show config``
       - Prints the configuration file path and current state.
     * - ``pyalect delete config``
-      - Deletes the config file. This should be done prior to uninstalling Pyalect.
+      - Deleting the configuration file will also effectively deactivate Pyalect.
 
 
 Console Examples

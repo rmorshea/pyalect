@@ -39,8 +39,7 @@ def main(arguments: Dict[str, Any]) -> None:
         pyalect show config:
             Prints the configuration file path and current state.
         pyalect delete config:
-            Should be done prior to uninstalling Pyalect. This has the effect of
-            deactivating Pyalect and clearing the configuration state.
+            Deleting the configuration file will also effectively deactivate Pyalect.
     """
     try:
         for output in execute(arguments):
