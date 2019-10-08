@@ -1,46 +1,47 @@
-"""Pyalect
-
-Custom language dialect management for Python
-
-Usage:
-    pyalect (activate | deactivate)
-    pyalect register <transpiler> as <dialect> [--force]
-    pyalect deregister (<dialect> | <transpiler> from <dialect>)
-    pyalect (show | delete) config
-
-Descriptions:
-    pyalect activate:
-        The current Python interpreter will now automatically apply registered
-        transpilers to imported module with a `# dialect=...` comment header.
-    pyalect deactivate:
-        The current Python interpreter will no longer apply registered transpilers
-        to import modules
-    pyalect register <transpiler> as <dialect> [--force]:
-        Save a transpiler to be applied to modules with the given dialect header.
-        The <transpiler> should be of the form `dotted.path.to:TranspilerClass`.
-    pyalect deregister (<dialect> | <transpiler> as <dialect>):
-        Remove a transpiler from the dialect registery. Providing just the <dialect>
-        will remove any transpiler that's registered to it. Providing a <transpiler>
-        will remove is from the given <dialect>, however if <dialect> is "*" it will
-        be deregistered from dialects.
-    pyalect show config:
-        Prints the configuration file path and current state.
-    pyalect delete config:
-        Deletes the config file. This should be done prior to uninstalling Pyalect.
-"""
-import sys
 import json
-from typing import Dict, Any, Iterable
-
-from docopt import docopt
+import sys
+from typing import Any, Dict, Iterable
 
 import pyalect
+
 from . import config, dialect
 from .errors import UsageError
+from .utils import docopt_func
 
 
-def main() -> None:
-    arguments = docopt(__doc__, version=pyalect.__version__)
+@docopt_func(version=pyalect.__version__)
+def main(arguments: Dict[str, Any]) -> None:
+    """Pyalect
+
+    Custom language dialect management for Python
+
+    Usage:
+        pyalect (activate | deactivate)
+        pyalect register <transpiler> as <dialect> [--force]
+        pyalect deregister (<dialect> | <transpiler> from <dialect>)
+        pyalect (show | delete) config
+
+    Descriptions:
+        pyalect activate:
+            The current Python interpreter will now automatically apply registered
+            transpilers to imported module with a `# dialect=...` comment header.
+        pyalect deactivate:
+            The current Python interpreter will no longer apply registered transpilers
+            to import modules
+        pyalect register:
+            Save a transpiler to be applied to modules with the given dialect header.
+            The <transpiler> should be of the form `dotted.path.to:TranspilerClass`.
+        pyalect deregister:
+            Remove a transpiler from the dialect registery. Providing just the <dialect>
+            will remove any transpiler that's registered to it. Providing a <transpiler>
+            will remove is from the given <dialect>, however if <dialect> is "*" it will
+            be deregistered from dialects.
+        pyalect show config:
+            Prints the configuration file path and current state.
+        pyalect delete config:
+            Should be done prior to uninstalling Pyalect. This has the effect of
+            deactivating Pyalect and clearing the configuration state.
+    """
     try:
         for output in execute(arguments):
             print(output)
