@@ -10,13 +10,15 @@
 
 import os
 import sys
-
-import pyalect  # noqa
+from importlib import import_module
 
 here = os.path.dirname(__file__)
 project = here.rsplit(os.path.sep, 2)[0]
 init_file = os.path.join(project, "pyalect", "__init__.py")
 sys.path.insert(0, project)
+
+# import after path addition
+pyalect = import_module("pyalect")
 
 # -- Project information -----------------------------------------------------
 
@@ -25,7 +27,7 @@ copyright = "2019, Ryan Morshead"
 author = "Ryan Morshead"
 
 
-release = pyalect.__version__
+release = pyalect.__version__  # type: ignore
 version = release.rsplit(".", 1)[0]
 
 # -- General configuration ---------------------------------------------------
