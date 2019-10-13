@@ -1,6 +1,5 @@
 import ast
 import io
-import re
 import tokenize
 from importlib import import_module
 from typing import Dict, Optional, Type, Union
@@ -9,12 +8,9 @@ from typing_extensions import Protocol, runtime_checkable
 
 from . import config
 from .errors import UsageError
+from .patterns import DIALECT_COMMENT, DIALECT_NAME, TRANSPILER_NAME
 
-_TEMP_DIALECTS: Dict[str, Type["Transpiler"]] = {}
-
-DIALECT_NAME = re.compile(r"^[\w\.]+$")
-DIALECT_COMMENT = re.compile(r"^# ?dialect ?= ?(.+)\n?$")
-TRANSPILER_NAME = re.compile(r"^[\w\.]+\:[\w\.]+$")
+_IN_MEMORY_DIALECTS: Dict[str, Type["Transpiler"]] = {}
 
 
 def find_dialect(source: Union[bytes, str]) -> Optional[str]:
@@ -108,17 +104,17 @@ def import_transpiler_class(name: str) -> Type[Transpiler]:
 def transpiler(dialect: str) -> Transpiler:
     """Retrieve the transpiler for the given dialect."""
     cfg_dialects = config.read()["dialects"]
-    if dialect in _TEMP_DIALECTS:
-        return _TEMP_DIALECTS[dialect](dialect)
+    if dialect in _IN_MEMORY_DIALECTS:
+        return _IN_MEMORY_DIALECTS[dialect](dialect)
     elif dialect in cfg_dialects:
         cls = import_transpiler_class(cfg_dialects[dialect])
         return cls(dialect)
     else:
-        raise ImportError(f"Unknown dialect {dialect!r}")
+        raise ValueError(f"Unknown dialect {dialect!r}")
 
 
 def register(
-    dialect: str, transpiler: Union[Type[Transpiler], str], force: bool
+    dialect: str, transpiler: Union[Type[Transpiler], str], force: bool = True
 ) -> None:
     """Register a transpiler for the given dialect.
 
@@ -137,7 +133,7 @@ def register(
 
     cfg = config.read()
     cfg_dialects = cfg["dialects"]
-    if dialect in cfg_dialects or dialect in _TEMP_DIALECTS and not force:
+    if (dialect in cfg_dialects or dialect in _IN_MEMORY_DIALECTS) and not force:
         raise UsageError(f"already registered {cfg_dialects[dialect]!r} as {dialect!r}")
 
     if isinstance(transpiler, str):
@@ -146,67 +142,81 @@ def register(
         cfg_dialects[dialect] = transpiler
         config.write(cfg)
     elif isinstance(transpiler, type) and issubclass(transpiler, Transpiler):
-        _TEMP_DIALECTS[dialect] = transpiler
+        _IN_MEMORY_DIALECTS[dialect] = transpiler
     else:
-        raise TypeError(f"invalid transpiler {transpiler!r}")
+        raise ValueError(f"Expected a string or Transpiler, not {transpiler!r}")
 
 
 def deregister(
-    dialect: Optional[str], transpiler: Union[Type[Transpiler], str, None]
+    dialect: str = "*", transpiler: Union[Type[Transpiler], str] = "*"
 ) -> None:
     """Deregister a transpiler from a given dialect.
 
     Parameters:
         dialect:
-            The name of a dialect or ``"*"`` to delete a given ``transpiler`` from
-            all dialects.
+            The name of a dialect or ``"*"`` to delete a given ``transpiler``
+            from all dialects.
         transpiler:
-            If ``None`` then any transpiler for the given ``dialect`` will
+            If ``"*"`` then any transpiler for the given ``dialect`` will
             be removed. If given as a string, it should be of the form
             ``dotted.path.to.TranspilerClass``. Otherwise it should be a
             ``Transpiler`` subclass.
     """
-    if dialect is not None and dialect != "*" and not DIALECT_NAME.match(dialect):
+    if dialect != "*" and not DIALECT_NAME.match(dialect):
         raise UsageError(f"invalid dialect name {dialect!r}")
 
-    if isinstance(transpiler, type) and issubclass(transpiler, Transpiler):
-        _deregister_temp(dialect, transpiler)
-        return None
-
-    if transpiler is not None and not TRANSPILER_NAME.match(transpiler):
-        raise UsageError(f"invalid transpiler name {transpiler!r}")
-    if not (transpiler or dialect):
-        raise UsageError("no transpiler or dialect to deregister")
+    if isinstance(transpiler, str):
+        if transpiler != "*" and not TRANSPILER_NAME.match(transpiler):
+            raise UsageError(f"invalid transpiler name {transpiler!r}")
+    elif isinstance(transpiler, type):
+        if not issubclass(transpiler, Transpiler):
+            raise ValueError(f"{transpiler} is not a Transpiler")
+    else:
+        raise ValueError(f"Expected a string or Transpiler, not {transpiler!r}")
 
     cfg = config.read()
     cfg_dialects = cfg["dialects"]
-    if dialect is not None and transpiler != "*":
-        if dialect not in cfg_dialects:
-            raise UsageError(f"no dialect {dialect!r} to deregister")
-        elif transpiler != cfg_dialects[dialect]:
-            msg = f"{transpiler!r} is not the transpiler for dialect {dialect!r}"
-            raise UsageError(msg)
-        else:
-            del cfg_dialects[dialect]
-    elif dialect is not None:
-        cfg_dialects.pop(dialect, None)
-    else:
+
+    if dialect == "*" and transpiler == "*":
+        cfg_dialects.clear()
+        _IN_MEMORY_DIALECTS.clear()
+    elif dialect == "*":
         for d, t in list(cfg_dialects.items()):
             if t == transpiler:
+                del cfg_dialects[d]
+        for d, t in list(_IN_MEMORY_DIALECTS.items()):
+            if t == transpiler:
+                del _IN_MEMORY_DIALECTS[d]
+    elif transpiler == "*":
+        _IN_MEMORY_DIALECTS.pop(dialect, None)
+        cfg_dialects.pop(dialect, None)
+    else:
+        if dialect in cfg_dialects:
+            if transpiler != cfg_dialects[dialect]:
+                msg = f"{transpiler!r} is not the transpiler for dialect {dialect!r}"
+                raise UsageError(msg)
+            else:
                 del cfg_dialects[dialect]
-
+        elif dialect in _IN_MEMORY_DIALECTS:
+            if transpiler != _IN_MEMORY_DIALECTS[dialect]:
+                msg = f"{transpiler!r} is not the transpiler for dialect {dialect!r}"
+                raise UsageError(msg)
+            else:
+                del _IN_MEMORY_DIALECTS[dialect]
+        else:
+            raise UsageError(f"no dialect {dialect!r} to deregister")
     config.write(cfg)
 
 
 def _deregister_temp(dialect: Optional[str], transpiler: Type[Transpiler]) -> None:
     if dialect is None:
-        for d, t in _TEMP_DIALECTS.items():
+        for d, t in _IN_MEMORY_DIALECTS.items():
             if t == transpiler:
-                del _TEMP_DIALECTS[d]
-    elif dialect not in _TEMP_DIALECTS:
+                del _IN_MEMORY_DIALECTS[d]
+    elif dialect not in _IN_MEMORY_DIALECTS:
         raise UsageError(f"no dialect {dialect!r} to deregister")
-    elif _TEMP_DIALECTS[dialect] != transpiler:
+    elif _IN_MEMORY_DIALECTS[dialect] != transpiler:
         msg = f"{transpiler!r} is not the transpiler for dialect {dialect!r}"
         raise UsageError(msg)
     else:
-        del _TEMP_DIALECTS[dialect]
+        del _IN_MEMORY_DIALECTS[dialect]

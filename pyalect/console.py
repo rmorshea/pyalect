@@ -1,12 +1,58 @@
 import json
 import sys
-from typing import Any, Dict, Iterable
+import textwrap
+from functools import wraps
+from typing import Any, Callable, Dict, Iterable, Optional
+
+from docopt import docopt
+from typing_extensions import Protocol
 
 import pyalect
 
 from . import config, dialect
 from .errors import UsageError
-from .utils import docopt_func
+
+_ConsoleFunction = Callable[[Dict[str, Any]], None]
+
+
+class _WrappedConsoleFunction(Protocol):
+    def __call__(self, arguments: Optional[Dict[str, Any]] = None) -> None:
+        ...
+
+
+def docopt_func(
+    *args: Any, **kwargs: Any
+) -> Callable[[_ConsoleFunction], _WrappedConsoleFunction]:
+    """Makes functions with DocOpt docstrings compatible with Sphinx styling.
+
+    This passes the original docstring to DocOpt, but modifies ``__doc__`` of the
+    function to be compatible with Sphinx.
+
+    Parameters:
+        args: forwarded to ``docopt``
+        kwargs: forwarded to ``docopt``
+    """
+
+    def setup(func: _ConsoleFunction) -> _WrappedConsoleFunction:
+        """Decorator for properly formatting the function's docstring"""
+        if func.__doc__ is None:
+            raise ValueError("No docstring for docopt function.")
+
+        original_docstring: str = func.__doc__
+
+        @wraps(func)
+        def wrapper(argv: Optional[str] = None) -> None:
+            arguments = docopt(
+                textwrap.dedent("    " + original_docstring),
+                argv,
+                version=pyalect.__version__,
+            )
+            return func(arguments)
+
+        func.__doc__ = "::\n\n    " + original_docstring
+        return wrapper
+
+    return setup
 
 
 @docopt_func(version=pyalect.__version__)
@@ -45,7 +91,7 @@ def main(arguments: Dict[str, Any]) -> None:
         for output in execute(arguments):
             print(output)
     except UsageError as error:
-        print(error)
+        print(error, file=sys.stderr)
         sys.exit(1)
 
 
@@ -74,8 +120,7 @@ def execute(arguments: Dict[str, Any]) -> Iterable[Any]:
 
 
 def _title(value: Any) -> str:
-    text = str(value).title()
-    return text + "\n" + ("-" * len(text))
+    return f"--- {str(value).upper()} ---"
 
 
 if __name__ == "__main__":

@@ -12,7 +12,7 @@ repos:
     rev: v0.730
     hooks:
     - id: mypy
-      args: ["--config-file", "mypy.ini", "--strict"]
+      args: ["--strict"]
       exclude: tests/*|setup.py
 -   repo: https://github.com/asottile/seed-isort-config
     rev: v1.9.3

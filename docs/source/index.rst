@@ -23,6 +23,7 @@ Installation
 .. code-block:: bash
 
     pip install pyalect
+    pyalect activate
 
 
 Console Usage
@@ -34,6 +35,7 @@ Console Usage
     pyalect register <transpiler> as <dialect> [--force]
     pyalect deregister (<dialect> | <transpiler> [as <dialect])
     pyalect show config
+    pyalect delete config
 
 .. list-table::
     :header-rows: 1
