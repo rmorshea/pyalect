@@ -2,7 +2,7 @@ import ast
 import io
 import tokenize
 from importlib import import_module
-from typing import Dict, Optional, Type, Union
+from typing import Dict, Optional, Set, Type, Union
 
 from typing_extensions import Protocol, runtime_checkable
 
@@ -11,6 +11,10 @@ from .errors import UsageError
 from .patterns import DIALECT_COMMENT, DIALECT_NAME, TRANSPILER_NAME
 
 _IN_MEMORY_DIALECTS: Dict[str, Type["Transpiler"]] = {}
+
+
+def registered() -> Set[str]:
+    return set(config.read()["dialects"]).union(_IN_MEMORY_DIALECTS)
 
 
 def find_dialect(source: Union[bytes, str]) -> Optional[str]:
