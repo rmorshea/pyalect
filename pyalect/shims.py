@@ -1,4 +1,6 @@
 import ast
+import sys
+from traceback import print_exc
 from typing import Any, Optional, Type
 
 from . import dialect
@@ -14,16 +16,20 @@ else:
         """Node transformer defined to hook into IPython."""
 
         def visit(self, node: ast.AST) -> ast.AST:
-            first_node = next(ast.iter_child_nodes(node))
-            if (
-                isinstance(first_node, ast.Assign)
-                and isinstance(first_node.targets[0], ast.Name)
-                and first_node.targets[0].id == "_DIALECT_"
-                and isinstance(first_node.value, ast.Str)
-            ):
-                transpiler = dialect.transpiler(first_node.value.s)
-                node = transpiler.transform_ast(node)
-            return node
+            try:
+                first_node = next(ast.iter_child_nodes(node))
+                if (
+                    isinstance(first_node, ast.Assign)
+                    and isinstance(first_node.targets[0], ast.Name)
+                    and first_node.targets[0].id == "_DIALECT_"
+                    and isinstance(first_node.value, ast.Str)
+                ):
+                    transpiler = dialect.transpiler(first_node.value.s)
+                    node = transpiler.transform_ast(node)
+                return node
+            except Exception:
+                print_exc(file=sys.stderr)
+                return node
 
     def register_to_ipython_shell(shell: Optional[InteractiveShell] = None) -> None:
         """Register transpiler hooks to IPython shell."""
@@ -33,11 +39,16 @@ else:
         class DialectMagics(Magics):  # type: ignore
             def __init__(self, shell: InteractiveShell, **kwargs: Any) -> None:
                 super().__init__(shell, **kwargs)
-                shell.ast_transformers.insert(0, DialectNodeTransformer())
+                for transformer in shell.ast_transformers:
+                    if isinstance(transformer, DialectNodeTransformer):
+                        break
+                else:
+                    shell.ast_transformers.insert(0, DialectNodeTransformer())
 
             @cell_magic  # type: ignore
             def dialect(self, cell_dialect: str, raw_cell: str) -> None:
                 transpiler = dialect.transpiler(cell_dialect)
+
                 self.shell.run_cell(
                     # We need to prepend this ince we can't look for
                     # the dialect comment when transforming the AST.
