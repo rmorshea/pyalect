@@ -145,7 +145,7 @@ def register(
 
     if isinstance(transpiler, str):
         if not TRANSPILER_NAME.match(transpiler):
-            raise UsageError("invalid transpiler name {transpiler!r}")
+            raise UsageError(f"invalid transpiler name {transpiler!r}")
         cfg_dialects[dialect] = transpiler
         config.write(cfg)
     elif isinstance(transpiler, type) and issubclass(transpiler, Transpiler):

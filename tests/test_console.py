@@ -21,6 +21,13 @@ def test_register():
     assert isinstance(transpiler("test"), MockTranspiler)
 
 
+def test_bad_register(capsys):
+    with pytest.raises(SystemExit):
+        main("register invalid@#$ as test")
+    err = capsys.readouterr().err
+    assert err == "UsageError: invalid transpiler name 'invalid@#$'\n"
+
+
 def test_deregister():
     name = "tests.mock_package.mock_module:MockTranspiler"
     main(f"register {name} as test")

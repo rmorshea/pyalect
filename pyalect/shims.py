@@ -1,7 +1,7 @@
 import ast
 import sys
 from traceback import print_exc
-from typing import Any, Optional, Type
+from typing import Any, List, Optional, Type
 
 from . import dialect
 
@@ -11,24 +11,28 @@ try:
 except ImportError:
     pass
 else:
+    _transpiler_fifo_queue: List[dialect.Transpiler] = []
 
     class DialectNodeTransformer(ast.NodeTransformer):
         """Node transformer defined to hook into IPython."""
 
         def visit(self, node: ast.AST) -> ast.AST:
             try:
-                first_node = next(ast.iter_child_nodes(node))
-                if (
-                    isinstance(first_node, ast.Assign)
-                    and isinstance(first_node.targets[0], ast.Name)
-                    and first_node.targets[0].id == "_DIALECT_"
-                    and isinstance(first_node.value, ast.Str)
-                ):
-                    transpiler = dialect.transpiler(first_node.value.s)
-                    node = transpiler.transform_ast(node)
-                return node
+                if isinstance(node, ast.Module):
+                    first_node = next(ast.iter_child_nodes(node))
+                    if (
+                        isinstance(first_node, ast.Assign)
+                        and isinstance(first_node.targets[0], ast.Name)
+                        and first_node.targets[0].id == "_DIALECT_"
+                        and isinstance(first_node.value, ast.Str)
+                    ):
+                        node.body.pop(0)
+                        node = _transpiler_fifo_queue.pop(0).transform_ast(node)
+                    return node
             except Exception:
                 print_exc(file=sys.stderr)
+                return node
+            else:
                 return node
 
     def register_to_ipython_shell(shell: Optional[InteractiveShell] = None) -> None:
@@ -48,9 +52,9 @@ else:
             @cell_magic  # type: ignore
             def dialect(self, cell_dialect: str, raw_cell: str) -> None:
                 transpiler = dialect.transpiler(cell_dialect)
-
+                _transpiler_fifo_queue.append(transpiler)
                 self.shell.run_cell(
-                    # We need to prepend this ince we can't look for
+                    # We need to prepend this since we can't look for
                     # the dialect comment when transforming the AST.
                     f"_DIALECT_ = {cell_dialect!r}\n"
                     + transpiler.transform_src(raw_cell)
