@@ -1,4 +1,4 @@
-__version__ = "0.1.0.dev5"
+__version__ = "0.1.0.dev6"
 from . import importer, shims
 from .config import activate, deactivate, path
 from .dialect import Transpiler, deregister, register, registered

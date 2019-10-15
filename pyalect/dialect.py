@@ -17,7 +17,7 @@ def registered() -> Set[str]:
     return set(config.read()["dialects"]).union(_IN_MEMORY_DIALECTS)
 
 
-def find_dialect(source: Union[bytes, str]) -> Optional[str]:
+def find_dialect(source: Union[bytes, str, io.FileIO]) -> Optional[str]:
     """Extract dialect from comment headers in module source code.
 
     The comment should be of the form ``# dialect=my_dialect`` and must be before
@@ -34,7 +34,10 @@ def find_dialect(source: Union[bytes, str]) -> Optional[str]:
             # dialect=my_dialect
             '''docstring'''
     """
-    if isinstance(source, str):
+    buffer: Union[io.FileIO, io.BytesIO]
+    if isinstance(source, io.FileIO):
+        buffer = source
+    elif isinstance(source, str):
         buffer = io.BytesIO(source.encode())
     else:
         buffer = io.BytesIO(source)
@@ -142,7 +145,7 @@ def register(
 
     if isinstance(transpiler, str):
         if not TRANSPILER_NAME.match(transpiler):
-            raise UsageError("invalid transpiler name {transpiler!r}")
+            raise UsageError(f"invalid transpiler name {transpiler!r}")
         cfg_dialects[dialect] = transpiler
         config.write(cfg)
     elif isinstance(transpiler, type) and issubclass(transpiler, Transpiler):

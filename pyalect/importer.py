@@ -4,45 +4,49 @@ import os
 import sys
 import tokenize
 import types
-from importlib.abc import FileLoader, MetaPathFinder
-from importlib.machinery import ModuleSpec
+from importlib.abc import MetaPathFinder
+from importlib.machinery import ModuleSpec, SourceFileLoader
 from importlib.util import spec_from_file_location
-from typing import Any, List, Optional, Sequence, Union
+from types import CodeType
+from typing import Dict, List, Optional, Sequence, Union
 
 from . import dialect
 
 
-class PyalectLoader(FileLoader):
+def decode_source(source_bytes: bytes) -> str:
+    """Copied from importlib._bootstrap_external"""
+    source_bytes_readline = io.BytesIO(source_bytes).readline
+    encoding = tokenize.detect_encoding(source_bytes_readline)
+    # see: https://github.com/python/typeshed/pull/3311
+    newline_decoder = io.IncrementalNewlineDecoder(None, True)  # type: ignore
+    # see: https://github.com/python/typeshed/pull/3312
+    return newline_decoder.decode(source_bytes.decode(encoding[0]))  # type: ignore
+
+
+class PyalectLoader(SourceFileLoader):
     """Import loader for Pyalect."""
-
-    def get_byte_source(self, fullname: str) -> bytes:
-        with open(self.get_filename(fullname), "rb") as f:
-            return f.read()
-
-    def get_source(self, fullname: str) -> str:
-        byte_source = self.get_byte_source(fullname)
-        encoding, _ = tokenize.detect_encoding(io.BytesIO(byte_source).readline)
-        # see: https://github.com/python/typeshed/pull/3311
-        newline_decoder = io.IncrementalNewlineDecoder(None, True)  # type: ignore
-        # see: https://github.com/python/typeshed/pull/3312
-        return newline_decoder.decode(byte_source.decode(encoding))  # type: ignore
 
     def get_dialect(self, fullname: str) -> Optional[str]:
         """Find dialect comment before the first non-continuation newline."""
-        return dialect.find_dialect(self.get_byte_source(fullname))
+        return dialect.find_dialect(self.get_data(self.get_filename(fullname)))
 
-    def get_code(self, fullname: str) -> Any:
-        source = self.get_source(fullname)
-        filename = self.get_filename(fullname)
-        dialect_name = self.get_dialect(fullname)
+    @staticmethod
+    def source_to_code(data: Union[bytes, str], path: str = "<string>") -> CodeType:
+        dialect_name = dialect.find_dialect(data)
+        code: CodeType
         if dialect_name is not None:
             transpiler = dialect.transpiler(dialect_name)
+            if isinstance(data, bytes):
+                source = decode_source(data)
+            else:
+                source = data
             trans_source = transpiler.transform_src(source)
             tree = ast.parse(trans_source)
             trans_tree = transpiler.transform_ast(tree)
-            return compile(trans_tree, filename, "exec")
+            code = compile(trans_tree, path, "exec")
         else:
-            return compile(source, filename, "exec")
+            code = compile(data, path, "exec")
+        return code
 
 
 class PyalectFinder(MetaPathFinder):
@@ -51,12 +55,21 @@ class PyalectFinder(MetaPathFinder):
     This class is registered to :data:`sys.meta_path`.
     """
 
+    def __init__(self) -> None:
+        self._specs: Dict[str, ModuleSpec] = {}
+
+    def invalidate_caches(self) -> None:
+        self._specs.clear()
+
     def find_spec(
         self,
         fullname: str,
         path: Optional[Sequence[Union[bytes, str]]],
         target: Optional[types.ModuleType] = None,
     ) -> Optional[ModuleSpec]:
+        if fullname in self._specs:
+            return self._specs[fullname]
+
         if path is None:
             known_path = [os.getcwd()]  # top level import
         else:
@@ -84,12 +97,14 @@ class PyalectFinder(MetaPathFinder):
                 # no dialect defined
                 return None
 
-            return spec_from_file_location(
+            spec = spec_from_file_location(
                 fullname,
                 filename,
                 loader=loader,
                 submodule_search_locations=submodule_locations,
             )
+            self._specs[fullname] = spec
+            return spec
 
         # we don't know how to import this
         return None
