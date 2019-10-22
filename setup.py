@@ -22,7 +22,6 @@ package = {
     "name": name,
     "python_requires": ">=3.6,<4.0",
     "packages": find_packages(exclude=["tests*"]),
-    "entry_points": {"console_scripts": ["pyalect=pyalect.console:main"]},
     "description": "",
     "author": "Ryan Morshead",
     "author_email": "ryan.morshead@gmail.com",

@@ -8,20 +8,6 @@ API
 .. module:: pyalect
 
 
-Config
-------
-
-.. automodule:: pyalect.config
-    :members:
-
-
-Console
--------
-
-.. automodule:: pyalect.console
-    :members:
-
-
 Dialect
 -------
 

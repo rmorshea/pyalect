@@ -1,9 +1,0 @@
-# this file is embeded into the .pth file
-try:
-    import pyalect
-except ImportError as error:
-    if str(error) == "No module named 'pyalect'":
-        # silently remove .pth file (pyalect was uninstalled)
-        import os
-        from distutils.sysconfig import get_python_lib
-        os.remove(os.path.join(get_python_lib(), "pyalect.pth"))

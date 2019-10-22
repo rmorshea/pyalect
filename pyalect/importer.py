@@ -17,18 +17,12 @@ def decode_source(source_bytes: bytes) -> str:
     """Copied from importlib._bootstrap_external"""
     source_bytes_readline = io.BytesIO(source_bytes).readline
     encoding = tokenize.detect_encoding(source_bytes_readline)
-    # see: https://github.com/python/typeshed/pull/3311
-    newline_decoder = io.IncrementalNewlineDecoder(None, True)  # type: ignore
-    # see: https://github.com/python/typeshed/pull/3312
-    return newline_decoder.decode(source_bytes.decode(encoding[0]))  # type: ignore
+    newline_decoder = io.IncrementalNewlineDecoder(None, True)
+    return newline_decoder.decode(source_bytes.decode(encoding[0]))
 
 
 class PyalectLoader(SourceFileLoader):
     """Import loader for Pyalect."""
-
-    def get_dialect(self, fullname: str) -> Optional[str]:
-        """Find dialect comment before the first non-continuation newline."""
-        return dialect.find_dialect(self.get_data(self.get_filename(fullname)))
 
     @staticmethod
     def source_to_code(data: Union[bytes, str], path: str = "<string>") -> CodeType:
@@ -93,7 +87,7 @@ class PyalectFinder(MetaPathFinder):
                 continue
 
             loader = PyalectLoader(fullname, filename)
-            if not loader.get_dialect(fullname):
+            if dialect.find_dialect(loader.get_data(filename)) is None:
                 # no dialect defined
                 return None
 
