@@ -3,10 +3,13 @@ Pyalect |release|
 
 A dynamic dialect transpiler for Python.
 
-.. toctree::
-    :maxdepth: 1
+Now why would you want to transpile Python one might ask? Well the aren't very many
+problems that ought to be solved this way, but there are a few
 
-    api
+
+.. contents::
+  :local:
+  :depth: 1
 
 
 Early Days
@@ -66,6 +69,14 @@ Dialects are supported in `IPython <http://ipython.org/>`__ and
 
     %%dialect html
     ...
+
+
+API
+---
+
+.. automodule:: pyalect.dialect
+    :members:
+
 
 
 .. Links

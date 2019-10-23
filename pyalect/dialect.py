@@ -1,16 +1,34 @@
 import ast
 import io
+import re
 import tokenize
+from pathlib import Path
 from typing import Callable, Dict, Optional, Set, Type, Union, overload
 
 from typing_extensions import Protocol, runtime_checkable
 
-from .patterns import DIALECT_COMMENT, DIALECT_NAME, TRANSPILER_NAME
+DIALECT_COMMENT = re.compile(r"^# ?dialect ?= ?(.+)\n?$")
+DIALECT_NAME = re.compile(r"^[\w\-]+$")
 
 _DIALECTS: Dict[str, Type["Transpiler"]] = {}
 
 
-def find_dialect(source: Union[bytes, str, io.FileIO]) -> Optional[str]:
+def file_dialect(filename: Union[str, Path]) -> Optional[str]:
+    filepath = Path(filename)
+    if not filepath.suffixes:
+        return None
+    full_suffix = "".join(filepath.suffixes)
+    if full_suffix == ".py":
+        return module_dialect(io.FileIO(str(filepath)))
+    elif full_suffix.endswith(".py") and full_suffix[1:-3] in registered():
+        return full_suffix[1:-3]
+    elif full_suffix[1:] in registered():
+        return full_suffix[1:]
+    else:
+        return None
+
+
+def module_dialect(source: Union[bytes, str, io.FileIO]) -> Optional[str]:
     """Extract dialect from comment headers in module source code.
 
     The comment should be of the form ``# dialect=my_dialect`` and must be before
@@ -27,12 +45,15 @@ def find_dialect(source: Union[bytes, str, io.FileIO]) -> Optional[str]:
             # dialect=my_dialect
             '''docstring'''
     """
-    if isinstance(source, str):
+    buffer: Union[io.FileIO, io.BytesIO]
+    if isinstance(source, io.FileIO):
+        buffer = source
+    elif isinstance(source, str):
         buffer = io.BytesIO(source.encode())
     elif isinstance(source, bytes):
         buffer = io.BytesIO(source)
     else:
-        raise TypeError(f"Expected bytes, str not {source!r}")
+        raise TypeError(f"Expected bytes, str, or FileIO not {source!r}")
     for token in tokenize.tokenize(buffer.readline):
         if token.type == tokenize.NEWLINE:
             break
@@ -145,7 +166,7 @@ def register(
 
 
 def deregister(
-    dialect: str = "*", transpiler: Union[Type[Transpiler], str] = "*"
+    dialect: str = "*", transpiler: Optional[Type[Transpiler]] = None
 ) -> None:
     """Deregister a transpiler from a given dialect.
 
@@ -162,22 +183,19 @@ def deregister(
     if dialect != "*" and not DIALECT_NAME.match(dialect):
         raise ValueError(f"invalid dialect name {dialect!r}")
 
-    if isinstance(transpiler, str):
-        if transpiler != "*" and not TRANSPILER_NAME.match(transpiler):
-            raise ValueError(f"invalid transpiler name {transpiler!r}")
-    elif isinstance(transpiler, type):
+    if isinstance(transpiler, type):
         if not issubclass(transpiler, Transpiler):
             raise ValueError(f"{transpiler} is not a Transpiler")
-    else:
+    elif transpiler is not None:
         raise ValueError(f"Expected a Transpiler, not {transpiler!r}")
 
-    if dialect == "*" and transpiler == "*":
+    if dialect == "*" and transpiler is None:
         _DIALECTS.clear()
     elif dialect == "*":
         for d, t in list(_DIALECTS.items()):
             if t == transpiler:
                 del _DIALECTS[d]
-    elif transpiler == "*":
+    elif transpiler is None:
         _DIALECTS.pop(dialect, None)
     else:
         if dialect in _DIALECTS:

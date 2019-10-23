@@ -1,12 +1,12 @@
 import ast
 import io
-import os
 import sys
 import tokenize
 import types
 from importlib.abc import MetaPathFinder
 from importlib.machinery import ModuleSpec, SourceFileLoader
 from importlib.util import spec_from_file_location
+from pathlib import Path
 from types import CodeType
 from typing import Dict, List, Optional, Sequence, Union
 
@@ -24,22 +24,22 @@ def decode_source(source_bytes: bytes) -> str:
 class PyalectLoader(SourceFileLoader):
     """Import loader for Pyalect."""
 
-    @staticmethod
-    def source_to_code(data: Union[bytes, str], path: str = "<string>") -> CodeType:
-        dialect_name = dialect.find_dialect(data)
-        code: CodeType
-        if dialect_name is not None:
-            transpiler = dialect.transpiler(dialect_name)
-            if isinstance(data, bytes):
-                source = decode_source(data)
-            else:
-                source = data
-            trans_source = transpiler.transform_src(source)
-            tree = ast.parse(trans_source)
-            trans_tree = transpiler.transform_ast(tree)
-            code = compile(trans_tree, path, "exec")
+    def __init__(self, dialect: str, fullname: str, filename: str):
+        super().__init__(fullname, filename)
+        self.dialect = dialect
+
+    def source_to_code(  # type: ignore
+        self, data: Union[bytes, str], path: str = "<string>"
+    ) -> CodeType:
+        transpiler = dialect.transpiler(self.dialect)
+        if isinstance(data, bytes):
+            source = decode_source(data)
         else:
-            code = compile(data, path, "exec")
+            source = data
+        trans_source = transpiler.transform_src(source)
+        tree = ast.parse(trans_source)
+        trans_tree = transpiler.transform_ast(tree)
+        code: CodeType = compile(trans_tree, path, "exec")
         return code
 
 
@@ -64,40 +64,47 @@ class PyalectFinder(MetaPathFinder):
         if fullname in self._specs:
             return self._specs[fullname]
 
+        known_path: List[Path]
         if path is None:
-            known_path = [os.getcwd()]  # top level import
+            known_path = [Path.cwd()]  # top level import
         else:
-            known_path = [p if isinstance(p, str) else p.decode() for p in path]
+            str_paths = (p if isinstance(p, str) else p.decode() for p in path)
+            known_path = list(map(Path, str_paths))
+
         if "." in fullname:
-            parents, name = fullname.rsplit(".", 1)
+            name = fullname.rsplit(".", 1)[1]
         else:
             name = fullname
 
         for entry in known_path:
             submodule_locations: Optional[List[str]]
-            if os.path.isdir(os.path.join(entry, name)):
-                # this module has child modules
-                filename = os.path.join(entry, name, "__init__.py")
-                submodule_locations = [os.path.join(entry, name)]
+            if (entry / name).is_dir():
+                possible_filenames = (entry / name).rglob("__init__.*")
+                submodule_locations = [str(entry / name)]
             else:
-                filename = os.path.join(entry, name + ".py")
+                possible_filenames = entry.rglob(f"{name}.*")
                 submodule_locations = None
 
-            if not os.path.exists(filename):
+            found_dialects = {}
+            for fn in possible_filenames:
+                possible_dialect = dialect.file_dialect(fn)
+                if possible_dialect is not None:
+                    found_dialects[fn] = possible_dialect
+
+            if not found_dialects:
                 continue
+            elif len(found_dialects) > 1:
+                msg = f"Found multiple dialects for {name!r} in {str(entry)!r}"
+                raise ImportError(msg)
+            else:
+                filename, dialect_name = list(found_dialects.items())[0]
 
-            loader = PyalectLoader(fullname, filename)
-            if dialect.find_dialect(loader.get_data(filename)) is None:
-                # no dialect defined
-                return None
-
-            spec = spec_from_file_location(
+            spec = self._specs[fullname] = spec_from_file_location(
                 fullname,
                 filename,
-                loader=loader,
+                loader=PyalectLoader(dialect_name, fullname, str(filename)),
                 submodule_search_locations=submodule_locations,
             )
-            self._specs[fullname] = spec
             return spec
 
         # we don't know how to import this

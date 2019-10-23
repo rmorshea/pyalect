@@ -1,7 +1,14 @@
+from importlib import import_module
+
+import pytest
+
 import pyalect
 
 
-def test_import_mock_module():
+@pytest.mark.parametrize(
+    "module_name", ["comment_header", "file_extension", "file_extension_dot_py"]
+)
+def test_imports(module_name):
     @pyalect.register("test")
     class MyTranspiler:
         def __init__(self, dialect):
@@ -13,6 +20,8 @@ def test_import_mock_module():
         def transform_ast(self, node):
             return node
 
-    from . import mock_module
+    package = __name__.rsplit(".", 1)[0] + ".mock_package"
+    module = import_module(module_name, package)
 
-    assert mock_module.y == 1
+    # the name x has been replaced with y
+    assert module.y == 1

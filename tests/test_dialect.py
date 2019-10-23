@@ -29,8 +29,8 @@ class MockTranspiler:
         "# coding=utf-8\n\n# other comment\n\n# dialect=test",
     ],
 )
-def test_find_dialect_in_source(source):
-    assert pyalect.dialect.find_dialect(source) == "test"
+def test_module_dialect_in_source(source):
+    assert pyalect.dialect.module_dialect(source) == "test"
 
 
 @pytest.mark.parametrize(
@@ -43,14 +43,14 @@ def test_find_dialect_in_source(source):
     ],
 )
 def test_no_dialect_found_in_source(source):
-    assert pyalect.dialect.find_dialect(source) is None
+    assert pyalect.dialect.module_dialect(source) is None
 
 
-def test_find_dialect_uses_str_or_bytes():
-    pyalect.dialect.find_dialect("")
-    pyalect.dialect.find_dialect(b"")
+def test_module_dialect_uses_str_or_bytes():
+    pyalect.dialect.module_dialect("")
+    pyalect.dialect.module_dialect(b"")
     with pytest.raises(TypeError):
-        pyalect.dialect.find_dialect(None)
+        pyalect.dialect.module_dialect(None)
 
 
 def test_default_transpiler_does_not_modify():
@@ -101,7 +101,7 @@ def test_deregister_transpiler_class_from_all():
 
 def test_deregister_any_from_dialect():
     pyalect.register("mock_dialect", MockTranspiler)
-    pyalect.deregister("mock_dialect", "*")
+    pyalect.deregister("mock_dialect")
     with pytest.raises(ValueError):
         pyalect.dialect.transpiler("mock_dialect")
 
