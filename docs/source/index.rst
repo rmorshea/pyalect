@@ -1,120 +1,74 @@
 Pyalect |release|
 =================
 
-A dynamic dialect transpiler for Python.
-
-.. toctree::
-    :maxdepth: 1
-
-    api
-
-
-Early Days
-----------
-
-Pyalect is still young! If you have ideas, now is the time to contribute a `pull request`_.
-Of course if you find a bug, and aren't sure how to fix it post an `issue`_ and it'll get
-taken care of.
-
-
-Installation
-------------
+A dynamic dialect transpiler for Python that you can install with ``pip``!
 
 .. code-block:: bash
 
     pip install pyalect
-    pyalect activate
+
+.. note::
+
+    Pyalect is still young! If you have ideas or find a problem `let us know <issue>`_!
 
 
-Console Usage
--------------
-
-.. code-block:: text
-
-    pyalect (activate | deactivate)
-    pyalect register <transpiler> as <dialect> [--force]
-    pyalect deregister (<dialect> | <transpiler> [as <dialect])
-    pyalect show config
-    pyalect delete config
-
-.. list-table::
-    :header-rows: 1
-
-    * - Command
-      - Description
-    * - ``pyalect activate``
-      - The current Python interpreter will now automatically apply registered
-        transpilers to imported module with a ``# dialect=...`` comment
-        header.
-    * - ``pyalect deactivate``
-      - The current Python interpreter will no longer apply registered transpilers
-        to imported modules.
-    * - ``pyalect register``
-      - Save a transpiler that will be applied to modules with the given
-        ``<dialect>`` header. The ``<transpiler>`` must be of the form
-        ``dotten.path.to:TranspilerClass``. If the ``--force`` option is
-        provided then it will overwrite an existing transpiler (if any).
-    * - ``pyalect deregister``
-      - Remove a transpiler from the dialect registery. Providing just the
-        ``<dialect>`` will remove any transpiler that's registered to
-        it. Providing a ``<transpiler>`` will remove is from the given
-        ``<dialect>``, however if ``<dialect>`` is ``*`` it will be
-        deregistered from dialects.
-    * - ``pyalect show config``
-      - Prints the configuration file path and current state.
-    * - ``pyalect delete config``
-      - Deleting the configuration file will also effectively deactivate Pyalect.
+.. contents::
+  :local:
+  :depth: 1
 
 
-Console Examples
-................
+But Why?
+--------
 
-.. code-block:: text
-
-    pyalect register my_module:MyTranspiler as my_dialect
-    pyalect activate
-    pyalect config show
-
-
-Programatic Usage
------------------
-
-Programatic usage of pyalect only applies within the current Python session and must be
-done before importing.
+Now why would you want to transpile Python one might ask? Well the aren't very many
+problems that ought to be solved this way, but the most obvious one is the ability to
+use special syntax in your normal Python code. For example, one might want to transpile
+the following `HTM <https://github.com/developit/htm>`__ style string template:
 
 .. code-block::
 
-    import ast
+    # dialect=html
+    html"<div height=10px><p>hello!</p></div>"
+
+Into valid Python:
+
+.. code-block::
+
+    # dialect=html
+    html("div", {"height": "10px"}, [html("p", {}, ["hello!"])])
+
+
+Usage
+-----
+
+So what would it look like to implement the custom syntax above? All you need to do is
+register a "dialect" transpiler with Pyalect before importing the module containing the
+code in question. This dialect transpiler takes the form of a class which implements two
+methods:
+
+.. code-block::
+
     import pyalect
 
-    class MyTranspiler:
+    @pyalect.register("html")
+    class HtmlTranspiler:
+        def transform_src(source: str) -> str:
+            """Called first to manipulate the module source as a string"""
 
-        def transform_src(self, source: str) -> str:
-            # modify src ...
-            return new_src
+        def transform_ast(tree: ast.AST) -> ast.AST:
+            """Called second to change the AST of the now transformed source"""
 
-        def transform_ast(self, node: ast.AST) -> ast.AST:
-            # modify AST ...
-            return node
+    import my_html_module
 
-    pyalect.register("my_dialect", MyTranspiler)
+Where `my_html_module` is a file with one of two characteristic:
 
+1. It contains a dialect header comment of the form ``# dialect=<the-dialect>``
 
-Indicating Dialects
--------------------
-
-If Pyalect has been activated via the console, or has already been imported, then
-Pyalect will hook into Python's import system to register transpilers that will be
-applied to files with their respecitve dialect comment in the file's header:
-
-.. code-block:: text
-
-    # dialect=my_dialect
-    ...
+2. The file extension is either ``.<dialect>`` or ``.<dialect>.py``
 
 
 IPython and Jupyter Support
----------------------------
+...........................
 
 Dialects are supported in `IPython <http://ipython.org/>`__ and
 `Jupyter <https://jupyter.org>`__ via magics:
@@ -123,6 +77,14 @@ Dialects are supported in `IPython <http://ipython.org/>`__ and
 
     %%dialect html
     ...
+
+
+API
+---
+
+.. automodule:: pyalect.dialect
+    :members:
+
 
 
 .. Links
