@@ -15,15 +15,10 @@ _DIALECTS: Dict[str, Type["Transpiler"]] = {}
 
 def file_dialect(filename: Union[str, Path]) -> Optional[str]:
     filepath = Path(filename)
-    if not filepath.suffixes:
+    if not filepath.suffix:
         return None
-    full_suffix = "".join(filepath.suffixes)
-    if full_suffix == ".py":
+    elif filepath.suffix == ".py":
         return module_dialect(io.FileIO(str(filepath)))
-    elif full_suffix.endswith(".py") and full_suffix[1:-3] in registered():
-        return full_suffix[1:-3]
-    elif full_suffix[1:] in registered():
-        return full_suffix[1:]
     else:
         return None
 

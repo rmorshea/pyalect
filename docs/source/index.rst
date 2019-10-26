@@ -28,14 +28,19 @@ the following `HTM <https://github.com/developit/htm>`__ style string template:
 .. code-block::
 
     # dialect=html
-    html"<div height=10px><p>hello!</p></div>"
+    dom = html"<div height=10px><p>hello!</p></div>"
 
 Into valid Python:
 
 .. code-block::
 
     # dialect=html
-    html("div", {"height": "10px"}, [html("p", {}, ["hello!"])])
+    dom = html("div", {"height": "10px"}, [html("p", {}, ["hello!"])])
+
+.. note::
+
+    For a real world example implementation of an HTML transpiler check out
+    `IDOM <https://idom.readthedocs.io/en/latest/extras.html>`_!
 
 
 Usage
@@ -43,8 +48,15 @@ Usage
 
 So what would it look like to implement the custom syntax above? All you need to do is
 register a "dialect" transpiler with Pyalect before importing the module containing the
-code in question. This dialect transpiler takes the form of a class which implements two
-methods:
+code in question. Consider the following directory structure:
+
+.. code-block:: text
+
+    my_project/
+    |-  entrypoint.py
+    |-  my_html_module.py
+
+Inside ``entrypoint.py`` should be a transpiler that implements two methods:
 
 .. code-block::
 
@@ -54,17 +66,29 @@ methods:
     class HtmlTranspiler:
         def transform_src(source: str) -> str:
             """Called first to manipulate the module source as a string"""
+            # your code goes here...
 
         def transform_ast(tree: ast.AST) -> ast.AST:
             """Called second to change the AST of the now transformed source"""
+            # your code goes here...
 
     import my_html_module
 
-Where `my_html_module` is a file with one of two characteristic:
+Where ``my_html_module`` is a normal Python file with a dialect header comment:
 
-1. It contains a dialect header comment of the form ``# dialect=<the-dialect>``
+.. code-block::
 
-2. The file extension is either ``.<dialect>`` or ``.<dialect>.py``
+    # dialect=html
+    dom = html"<div height=10px><p>hello!</p></div>"
+
+
+With all this in place and the methods of ``HtmlTranspiler`` implemented you should be
+able to run ``entrypoint.py`` in your console to find ``my_html_module`` has been
+transpiler just before execution:
+
+.. code-block:: bash
+
+    python entrypoint.py
 
 
 IPython and Jupyter Support

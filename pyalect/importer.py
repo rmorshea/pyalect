@@ -79,25 +79,19 @@ class PyalectFinder(MetaPathFinder):
         for entry in known_path:
             submodule_locations: Optional[List[str]]
             if (entry / name).is_dir():
-                possible_filenames = (entry / name).rglob("__init__.*")
+                filename = entry / name / "__init__.py"
                 submodule_locations = [str(entry / name)]
             else:
-                possible_filenames = entry.rglob(f"{name}.*")
+                filename = entry / (name + ".py")
                 submodule_locations = None
 
-            found_dialects = {}
-            for fn in possible_filenames:
-                possible_dialect = dialect.file_dialect(fn)
-                if possible_dialect is not None:
-                    found_dialects[fn] = possible_dialect
-
-            if not found_dialects:
+            if not filename.exists():
                 continue
-            elif len(found_dialects) > 1:
-                msg = f"Found multiple dialects for {name!r} in {str(entry)!r}"
-                raise ImportError(msg)
-            else:
-                filename, dialect_name = list(found_dialects.items())[0]
+
+            dialect_name = dialect.file_dialect(filename)
+
+            if dialect_name is None:
+                continue
 
             spec = self._specs[fullname] = spec_from_file_location(
                 fullname,
