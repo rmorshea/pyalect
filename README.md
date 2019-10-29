@@ -7,7 +7,6 @@ A dynamic dialect transpiler for Python.
 
 ```bash
 pip install pyalect
-pyalect activate
 ```
 
 
