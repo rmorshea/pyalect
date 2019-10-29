@@ -1,4 +1,4 @@
-__version__ = "0.1.0.dev8"
+__version__ = "0.1.0.dev9"
 from . import importer, shims
 from .dialect import Dialect, deregister, register, registered
 
