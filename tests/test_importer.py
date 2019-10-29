@@ -1,9 +1,11 @@
-import pyalect
+from pyalect import Dialect
 
 
 def test_imports():
-    @pyalect.register("test")
-    class MyTranspiler:
+    class MyDialect(Dialect):
+
+        name = "test"
+
         def __init__(self, dialect):
             self.dialect = dialect
 

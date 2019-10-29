@@ -1,0 +1,2 @@
+# extra=pytest
+pytest >=5.2, <6.0

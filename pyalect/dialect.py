@@ -3,27 +3,38 @@ import io
 import re
 import tokenize
 from pathlib import Path
-from typing import Callable, Dict, Optional, Set, Type, Union, overload
+from typing import (
+    Dict,
+    Iterable,
+    Iterator,
+    List,
+    Optional,
+    Sequence,
+    Set,
+    Type,
+    Union,
+    overload,
+)
 
-from typing_extensions import Protocol, runtime_checkable
+DIALECT_COMMENT = re.compile(r"^# ?dialect *= *(\w+(?: *, *\w+)*)\n?$")
+DIALECT_NAME = re.compile(r"^\w+$")
 
-DIALECT_COMMENT = re.compile(r"^# ?dialect ?= ?(.+)\n?$")
-DIALECT_NAME = re.compile(r"^[\w\-]+$")
-
-_DIALECTS: Dict[str, Type["Transpiler"]] = {}
+_REGISTERED_DIALECTS: Dict[str, Type["Dialect"]] = {}
 
 
-def file_dialect(filename: Union[str, Path]) -> Optional[str]:
+def find_file_dialects(filename: Union[str, Path]) -> List[str]:
+    """Find dialects in the source of the file at the given path.
+
+    See :func:`find_source_dialects` for more info.
+    """
     filepath = Path(filename)
-    if not filepath.suffix:
-        return None
-    elif filepath.suffix == ".py":
-        return module_dialect(io.FileIO(str(filepath)))
+    if filepath.suffix == ".py":
+        return find_source_dialects(io.FileIO(str(filepath)))
     else:
-        return None
+        return []
 
 
-def module_dialect(source: Union[bytes, str, io.FileIO]) -> Optional[str]:
+def find_source_dialects(source: Union[bytes, str, io.FileIO]) -> List[str]:
     """Extract dialect from comment headers in module source code.
 
     The comment should be of the form ``# dialect=my_dialect`` and must be before
@@ -55,19 +66,13 @@ def module_dialect(source: Union[bytes, str, io.FileIO]) -> Optional[str]:
         if token.type == tokenize.COMMENT:
             match = DIALECT_COMMENT.match(token.string)
             if match is not None:
-                name = match.groups()[0]
-                if DIALECT_NAME.match(name):
-                    return name
-    return None
+                names = match.groups()[0].split(",")
+                return list(map(str.strip, names))
+    return []
 
 
-@runtime_checkable
-class Transpiler(Protocol):
+class Dialect:
     """A base class for defining a dialect transpiler.
-
-    .. note::
-
-        A transpiler instance is only used once per module and shouldn't be reused.
 
     The logic of transpiling can be roughly paraphrased as:
 
@@ -75,7 +80,7 @@ class Transpiler(Protocol):
 
         import ast
 
-        transpiler = MyTranspiler()
+        transpiler = MyDialect("my_module.py")
         source = read_file_source()
         new_source = transpiler.transform_src(source)
         tree = ast.parse(new_source)
@@ -83,12 +88,26 @@ class Transpiler(Protocol):
 
         exec(compile(new_tree, "my_module.py", "exec"))
 
+    .. note::
+
+        A transpiler instance is only used **once** per module and **shouldn't** be
+        reused. This means that a :class:`Dialect` can keep state between calls to
+        :meth:`Dialect.transform_src` and :meth:`Dialect.transform_ast`
+
     Parameters:
-        dialect: the name of the dialect being transpiled.
+        filename: the name of the file being transpiled.
     """
 
-    def __init__(self, dialect: str) -> None:
-        ...
+    name: str
+
+    def __init_subclass__(cls, name: Optional[str] = None) -> None:
+        if name is not None:
+            cls.name = name
+        if getattr(cls, "name", None) is not None:
+            register(cls)
+
+    def __init__(self, filename: Optional[str] = None) -> None:
+        self.filename = filename
 
     def transform_src(self, source: str) -> str:
         """Implement this method to transform a raw Python source string."""
@@ -99,105 +118,137 @@ class Transpiler(Protocol):
         return node
 
 
-def transpiler(dialect: str) -> Transpiler:
-    """Retrieve the transpiler for the given dialect."""
-    if dialect in _DIALECTS:
-        return _DIALECTS[dialect](dialect)
-    else:
-        raise ValueError(f"Unknown dialect {dialect!r}")
+class DialectReducer(Sequence[Dialect]):
+    """A reducer for applying many dialects at once.
+
+    It acts like a :class:`typing.Sequence`, but with the same interface
+    as a :class:`Dialect` which makes it easy to work with.
+    """
+
+    def __init__(self, dialects: Iterable[Dialect]):
+        self._dialects = tuple(dialects)
+
+    @overload
+    def __getitem__(self, index: int) -> Dialect:
+        ...
+
+    @overload
+    def __getitem__(self, index: slice) -> "DialectReducer":
+        ...
+
+    def __getitem__(self, index: Union[int, slice]) -> Union[Dialect, "DialectReducer"]:
+        if isinstance(index, int):
+            return self._dialects[index]
+        else:
+            return DialectReducer(self._dialects[index])
+
+    def __len__(self) -> int:
+        return len(self._dialects)
+
+    def transform_src(self, source: str) -> str:
+        """Transform raw Python source code using the contained dialects."""
+        for d in self._dialects:
+            source = d.transform_src(source)
+        return source
+
+    def transform_ast(self, node: ast.AST) -> ast.AST:
+        """Transform an AST tree using the contained dialects."""
+        for d in self._dialects:
+            node = d.transform_ast(node)
+        return node
 
 
-_RegisterDeco = Callable[[Type[Transpiler]], Type[Transpiler]]
+def apply_dialects(
+    source: str, names: Union[str, Iterable[str]], filename: Optional[str] = None
+) -> ast.AST:
+    """Utility for applying dialect transpilers to source code."""
+    reducer = dialect_reducer(names)
+    source = reducer.transform_src(source)
+    tree = reducer.transform_ast(ast.parse(source))
+    return tree
+
+
+def dialect_reducer(
+    names: Union[str, Iterable[str]], filename: Optional[str] = None
+) -> DialectReducer:
+    """Get a :class:`DialectReducer`
+
+    Examples:
+        There's a couple different ways to create the reducer.
+
+        .. code-block::
+
+            dialect_reducer("d1")
+            dialect_reducer("d1, d2, d3")
+            dialect_reducer(["d1", "d2", "d3"])
+    """
+    dialects: List[Dialect] = []
+    for dia in _split_dialect_names(names):
+        if dia in _REGISTERED_DIALECTS:
+            cls = _REGISTERED_DIALECTS[dia]
+            dialects.append(cls(filename))
+        else:
+            raise ValueError(f"Unknown dialect {dia!r}")
+    return DialectReducer(dialects)
 
 
 def registered() -> Set[str]:
-    """The set of dialects already registered."""
-    return set(_DIALECTS)
+    """The set of dialect names already registered."""
+    return set(_REGISTERED_DIALECTS)
 
 
-@overload
-def register(dialect: str, transpiler: Type[Transpiler]) -> None:
-    ...
+def register(dialect: Type[Dialect]) -> Type[Dialect]:
+    """Register a :class:`Dialect` so it will be applied to imported modules."""
+    if not issubclass(dialect, Dialect):
+        raise TypeError(f"Expected a 'Dialect' not {dialect}")
+    if getattr(dialect, "name", None) is None:
+        raise ValueError(f"Dialect {dialect} has no name defined")
+    elif dialect.name in _REGISTERED_DIALECTS:
+        msg = f"Already registered {_REGISTERED_DIALECTS[dialect.name]!r} as {dialect.name!r}"
+        raise ValueError(msg)
+    _REGISTERED_DIALECTS[_check_valid_dialect_name(dialect.name)] = dialect
+    return dialect
 
 
-@overload
-def register(dialect: str, transpiler: None = None) -> _RegisterDeco:
-    ...
-
-
-def register(
-    dialect: str, transpiler: Union[None, Type[Transpiler]] = None
-) -> Optional[_RegisterDeco]:
-    """Register a transpiler for the given dialect.
-
-    This transpiler can be retrieved later via :func:`transpiler`.
+def deregister(*dialects: Union[Type[Dialect], Iterable[str], str],) -> None:
+    """Deregister one or more :class:`Dialect` classes.
 
     Parameters:
-        dialect:
-            The name of a dialect
-        transpiler:
-            If given as a string, it should be of the form
-            ``dotted.path.to.TranspilerClass``. Otherwise it
-            should be a ``Transpiler`` subclass.
+        dialects: the dialect name, or class
     """
-    if not DIALECT_NAME.match(dialect):
-        raise ValueError(f"invalid dialect name {dialect!r}")
-
-    if dialect in _DIALECTS:
-        raise ValueError(f"already registered {_DIALECTS[dialect]!r} as {dialect!r}")
-
-    def setup(transpiler: Type[Transpiler]) -> Type[Transpiler]:
-        if isinstance(transpiler, type) and issubclass(transpiler, Transpiler):
-            _DIALECTS[dialect] = transpiler
-        else:
-            raise ValueError(f"Expected a Transpiler, not {transpiler!r}")
-        return transpiler
-
-    if transpiler is not None:
-        setup(transpiler)
+    if not dialects:
+        _REGISTERED_DIALECTS.clear()
         return None
-    else:
-        return setup
 
-
-def deregister(
-    dialect: str = "*", transpiler: Optional[Type[Transpiler]] = None
-) -> None:
-    """Deregister a transpiler from a given dialect.
-
-    Parameters:
-        dialect:
-            The name of a dialect or ``"*"`` to delete a given ``transpiler``
-            from all dialects.
-        transpiler:
-            If ``"*"`` then any transpiler for the given ``dialect`` will
-            be removed. If given as a string, it should be of the form
-            ``dotted.path.to.TranspilerClass``. Otherwise it should be a
-            ``Transpiler`` subclass.
-    """
-    if dialect != "*" and not DIALECT_NAME.match(dialect):
-        raise ValueError(f"invalid dialect name {dialect!r}")
-
-    if isinstance(transpiler, type):
-        if not issubclass(transpiler, Transpiler):
-            raise ValueError(f"{transpiler} is not a Transpiler")
-    elif transpiler is not None:
-        raise ValueError(f"Expected a Transpiler, not {transpiler!r}")
-
-    if dialect == "*" and transpiler is None:
-        _DIALECTS.clear()
-    elif dialect == "*":
-        for d, t in list(_DIALECTS.items()):
-            if t == transpiler:
-                del _DIALECTS[d]
-    elif transpiler is None:
-        _DIALECTS.pop(dialect, None)
-    else:
-        if dialect in _DIALECTS:
-            if transpiler != _DIALECTS[dialect]:
-                msg = f"{transpiler!r} is not the transpiler for dialect {dialect!r}"
-                raise ValueError(msg)
+    for dia in dialects:
+        if isinstance(dia, str):
+            for name in _split_dialect_names(dia):
+                try:
+                    del _REGISTERED_DIALECTS[name]
+                except KeyError:
+                    raise ValueError(f"No dialect {name!r} to deregister")
+        elif isinstance(dia, type) and issubclass(dia, Dialect):
+            if (
+                getattr(dia, "name", None) is not None
+                and _REGISTERED_DIALECTS[dia.name] == dia
+            ):
+                del _REGISTERED_DIALECTS[dia.name]
             else:
-                del _DIALECTS[dialect]
+                raise ValueError(f"{dia} is not registered.")
         else:
-            raise ValueError(f"no dialect {dialect!r} to deregister")
+            raise TypeError(f"Expected a string, or Dialect subclass, not {dia}")
+
+
+def _split_dialect_names(dialects: Union[str, Iterable[str]]) -> Iterator[str]:
+    if not isinstance(dialects, str):
+        dialect_iter = dialects
+    else:
+        dialect_iter = list(map(str.strip, dialects.split(",")))
+    for dia in dialect_iter:
+        yield _check_valid_dialect_name(dia)
+
+
+def _check_valid_dialect_name(name: str) -> str:
+    if not DIALECT_NAME.match(name):
+        raise ValueError(f"Invalid dialect name {name!r}")
+    return name
