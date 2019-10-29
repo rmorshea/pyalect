@@ -3,7 +3,7 @@ import sys
 from traceback import print_exc
 from typing import Any, List, Optional, Type
 
-from . import dialect
+from .dialect import DialectReducer, dialect_reducer
 
 try:
     from IPython.core.interactiveshell import InteractiveShell
@@ -11,7 +11,7 @@ try:
 except ImportError:
     pass
 else:
-    _transpiler_fifo_queue: List[dialect.Transpiler] = []
+    _dialect_reducer_fifo_queue: List[DialectReducer] = []
 
     class DialectNodeTransformer(ast.NodeTransformer):
         """Node transformer defined to hook into IPython."""
@@ -27,7 +27,7 @@ else:
                         and isinstance(first_node.value, ast.Str)
                     ):
                         node.body.pop(0)
-                        node = _transpiler_fifo_queue.pop(0).transform_ast(node)
+                        node = _dialect_reducer_fifo_queue.pop(0).transform_ast(node)
                     return node
             except Exception:
                 print_exc(file=sys.stderr)
@@ -51,13 +51,14 @@ else:
 
             @cell_magic  # type: ignore
             def dialect(self, cell_dialect: str, raw_cell: str) -> None:
-                transpiler = dialect.transpiler(cell_dialect)
-                _transpiler_fifo_queue.append(transpiler)
+                reducer = dialect_reducer(cell_dialect)
+                _dialect_reducer_fifo_queue.append(reducer)
+
                 self.shell.run_cell(
                     # We need to prepend this since we can't look for
                     # the dialect comment when transforming the AST.
                     f"_DIALECT_ = {cell_dialect!r}\n"
-                    + transpiler.transform_src(raw_cell)
+                    + reducer.transform_src(raw_cell)
                 )
 
         shell_inst.register_magics(DialectMagics)

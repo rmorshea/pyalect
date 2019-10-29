@@ -1,4 +1,3 @@
-import ast
 import io
 import sys
 import tokenize
@@ -10,7 +9,7 @@ from pathlib import Path
 from types import CodeType
 from typing import Dict, List, Optional, Sequence, Union
 
-from . import dialect
+from .dialect import apply_dialects, find_file_dialects
 
 
 def decode_source(source_bytes: bytes) -> str:
@@ -24,22 +23,20 @@ def decode_source(source_bytes: bytes) -> str:
 class PyalectLoader(SourceFileLoader):
     """Import loader for Pyalect."""
 
-    def __init__(self, dialect: str, fullname: str, filename: str):
+    def __init__(self, dialects: List[str], fullname: str, filename: str):
         super().__init__(fullname, filename)
-        self.dialect = dialect
+        self.dialects = dialects
 
     def source_to_code(  # type: ignore
         self, data: Union[bytes, str], path: str = "<string>"
     ) -> CodeType:
-        transpiler = dialect.transpiler(self.dialect)
         if isinstance(data, bytes):
             source = decode_source(data)
         else:
             source = data
-        trans_source = transpiler.transform_src(source)
-        tree = ast.parse(trans_source)
-        trans_tree = transpiler.transform_ast(tree)
-        code: CodeType = compile(trans_tree, path, "exec")
+        code: CodeType = compile(
+            apply_dialects(source, self.dialects, path), path, "exec"
+        )
         return code
 
 
@@ -88,15 +85,15 @@ class PyalectFinder(MetaPathFinder):
             if not filename.exists():
                 continue
 
-            dialect_name = dialect.file_dialect(filename)
+            dialects = find_file_dialects(filename)
 
-            if dialect_name is None:
+            if not dialects:
                 continue
 
             spec = self._specs[fullname] = spec_from_file_location(
                 fullname,
                 filename,
-                loader=PyalectLoader(dialect_name, fullname, str(filename)),
+                loader=PyalectLoader(dialects, fullname, str(filename)),
                 submodule_search_locations=submodule_locations,
             )
             return spec

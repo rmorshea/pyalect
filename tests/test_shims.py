@@ -1,14 +1,17 @@
 import ast
 
-import pyalect
+from pyalect import Dialect
 
 
 def test_simple_dialect(ipython):
     capture = []
 
-    class MockTranspiler:
-        def __init__(self, dialect):
-            capture.append(dialect)
+    class MockDialect(Dialect):
+
+        name = "test"
+
+        def __init__(self, filename):
+            capture.append(filename)
 
         def transform_src(self, source):
             capture.append(source)
@@ -18,8 +21,6 @@ def test_simple_dialect(ipython):
             capture.append(node)
             return node
 
-    pyalect.register("test", MockTranspiler)
-
     ipython.run_cell(
         """
     %%dialect test
@@ -28,6 +29,6 @@ def test_simple_dialect(ipython):
     """
     )
 
-    assert capture[:2] == ["test", "\nx = 1\n\n"]
+    assert capture[:2] == [None, "\nx = 1\n\n"]
     assert len(capture) == 3
     assert ast.dump(capture[2]) == ast.dump(ast.parse("x = 1"))
