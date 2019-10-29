@@ -1,9 +1,5 @@
 dist: xenial
 language: python
-cache: apt
-
-before_install:
-  - sudo apt update
 
 install:
   # Install IDOM along with test requirements
