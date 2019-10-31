@@ -162,7 +162,7 @@ def apply_dialects(
     source: str, names: Union[str, Iterable[str]], filename: Optional[str] = None
 ) -> ast.AST:
     """Utility for applying dialect transpilers to source code."""
-    reducer = dialect_reducer(names)
+    reducer = dialect_reducer(names, filename)
     source = reducer.transform_src(source)
     tree = reducer.transform_ast(ast.parse(source))
     return tree
@@ -182,14 +182,20 @@ def dialect_reducer(
             dialect_reducer("d1, d2, d3")
             dialect_reducer(["d1", "d2", "d3"])
     """
-    dialects: List[Dialect] = []
-    for dia in _split_dialect_names(names):
-        if dia in _REGISTERED_DIALECTS:
-            cls = _REGISTERED_DIALECTS[dia]
-            dialects.append(cls(filename))
-        else:
-            raise ValueError(f"Unknown dialect {dia!r}")
-    return DialectReducer(dialects)
+    return DialectReducer([dialect(n, filename) for n in _split_dialect_names(names)])
+
+
+def dialect(name: str, filename: Optional[str]) -> Dialect:
+    """Instantiate a dialect for use on the given file.
+
+    Parameters:
+        name: The dialect name
+        filename: The name of the file the :class:`Dialect` will be used on.
+    """
+    if name in _REGISTERED_DIALECTS:
+        return _REGISTERED_DIALECTS[name](filename)
+    else:
+        raise ValueError(f"Unknown dialect {name!r}")
 
 
 def registered() -> Set[str]:

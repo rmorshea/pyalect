@@ -69,7 +69,7 @@ def test_no_dialect_found_in_source(source):
 
 
 def test_file_has_no_dialect():
-    no_dialect_file = Path(__file__).parents[0] / "mock_package" / "no_dialect"
+    no_dialect_file = Path(__file__).parent / "mock_package" / "no_dialect"
     assert find_file_dialects(no_dialect_file) == []
 
 

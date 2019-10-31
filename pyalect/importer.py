@@ -10,6 +10,7 @@ from types import CodeType
 from typing import Dict, List, Optional, Sequence, Union
 
 from .dialect import apply_dialects, find_file_dialects
+from .errors import DialectError, reraise_dialect_error
 
 
 def decode_source(source_bytes: bytes) -> str:
@@ -34,9 +35,11 @@ class PyalectLoader(SourceFileLoader):
             source = decode_source(data)
         else:
             source = data
-        code: CodeType = compile(
-            apply_dialects(source, self.dialects, path), path, "exec"
-        )
+        try:
+            ast_tree = apply_dialects(source, self.dialects, path)
+        except DialectError:
+            reraise_dialect_error()
+        code: CodeType = compile(ast_tree, path, "exec")
         return code
 
 
