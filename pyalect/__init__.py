@@ -1,5 +1,15 @@
-__version__ = "0.1.0.dev9"
+__version__ = "0.1.0.dev10"
 from . import importer, shims
-from .dialect import Dialect, deregister, register, registered
+from .dialect import Dialect, apply_dialects, deregister, register, registered
+from .errors import DialectError
 
-__all__ = ["deregister", "importer", "register", "registered", "shims", "Dialect"]
+__all__ = [
+    "apply_dialects",
+    "deregister",
+    "DialectError",
+    "importer",
+    "register",
+    "registered",
+    "shims",
+    "Dialect",
+]
