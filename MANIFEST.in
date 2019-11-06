@@ -1,4 +1,2 @@
-include pyalect/pth.embed
-include pyalect/py.typed
 include LICENSE
 include README.md
