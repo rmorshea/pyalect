@@ -9,7 +9,7 @@ A dynamic dialect transpiler for Python that you can install with ``pip``!
 
 .. note::
 
-    Pyalect is still young! If you have ideas or find a problem `let us know <issue>`_!
+    Pyalect is still young! If you have ideas or find a problem `let us know <https://github.com/rmorshea/pyalect/issues/new>`_!
 
 
 .. contents::
