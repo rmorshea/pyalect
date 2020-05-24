@@ -29,7 +29,11 @@ def find_file_dialects(filename: Union[str, Path]) -> List[str]:
     """
     filepath = Path(filename)
     if filepath.suffix == ".py":
-        return find_source_dialects(io.FileIO(str(filepath)))
+        file = io.FileIO(str(filepath))
+        try:
+            return find_source_dialects(file)
+        finally:
+            file.close()
     else:
         return []
 
