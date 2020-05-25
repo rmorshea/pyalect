@@ -1,4 +1,4 @@
-__version__ = "0.1.1"
+__version__ = "0.1.0"
 from . import importer, shims
 from .dialect import Dialect, apply_dialects, deregister, register, registered
 from .errors import DialectError
